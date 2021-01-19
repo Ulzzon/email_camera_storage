@@ -16,6 +16,6 @@ if __name__ == "__main__":
         receivers = config['EMAIL']['ReceiverEmails']
     print(f'email: {email}, password: {password}')
     email_handler = EmailHandler(email_address=email, password=password)
-    new_files = email_handler.fetch_emails()
-    email_handler.send_emails(receivers=config['EMAIL']['ReceiverEmails'], attachments=new_files)
+    new_files, number_of_pictures = email_handler.fetch_emails()
+    email_handler.send_emails(receivers=config['EMAIL']['ReceiverEmails'], message=number_of_pictures, attachments=new_files)
 

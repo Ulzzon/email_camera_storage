@@ -89,6 +89,7 @@ class EmailHandler():
         mail_ids = self.get_all_emails()
         new_file = False
         new_files = []
+        pictures = 0
 
         # now for every id we'll fetch the email
         # to extract its content
@@ -96,7 +97,7 @@ class EmailHandler():
             # the fetch function fetch the email given its id
             # and format that you want the message to be
             status, data = self.mail.fetch(i, '(RFC822)')
-
+            mail_content = ''
             # the content data at the '(RFC822)' format comes on
             # a list with a tuple with header, content, and the closing
             # byte b')'
@@ -115,7 +116,7 @@ class EmailHandler():
                     # if its not plain text we need to separate the message
                     # from its annexes to get the text
                     if message.is_multipart():
-                        mail_content = ''
+                        
                         new_file, file_path = self.save_attachment(message)
                         # on multipart we have the text message and
                         # another things like annex, and html version
@@ -130,15 +131,16 @@ class EmailHandler():
                         # if the message isn't multipart, just extract it
                         mail_content = message.get_payload()
 
-                    print(f'Subject: {mail_subject}')
                     print(f'Content: {mail_content}')
-                    print(f'Sent on: {mail_date}')
                     if new_file:
                         print(f'New file at: {file_path}')
                         new_files.append(file_path)
-        return new_files
+                        numbers = [int(s) for s in mail_content.split() if s.isdigit()]
+                        pictures += numbers[0]
+        print(pictures)
+        return new_files, pictures
 
-    def send_emails(self, receivers, attachments=[]):
+    def send_emails(self, receivers, number_of_pictures=0, attachments=[]):
         sender_email = self.email
         password = self.password
 
@@ -148,15 +150,19 @@ class EmailHandler():
         message["To"] = receivers
 
         # Create the plain-text and HTML version of your message
-        text = """\
+        text = f"""\
         Godmorgon,
         
-        Här kommer senaste mailet från kameran"""
-        html = """\
+        Här kommer senaste mailet från kameran
+        Antal bilder: {number_of_pictures}
+        """
+        
+        html = f"""\
         <html>
         <body>
             <p>Godmorgon,<br>
             Här kommer senaste mailet från kameran<br>
+            Antal bilder: {number_of_pictures}<br>
             </p>
         </body>
         </html>
