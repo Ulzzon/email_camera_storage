@@ -2,6 +2,11 @@ import email
 import os
 import imaplib
 import datetime
+import smtplib, ssl
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 
 SERVER = 'imap.gmail.com'
 DAYS = 7
@@ -83,6 +88,7 @@ class EmailHandler():
     def fetch_emails(self):
         mail_ids = self.get_all_emails()
         new_file = False
+        new_files = []
 
         # now for every id we'll fetch the email
         # to extract its content
@@ -129,6 +135,71 @@ class EmailHandler():
                     print(f'Sent on: {mail_date}')
                     if new_file:
                         print(f'New file at: {file_path}')
+                        new_files.append(file_path)
+        return new_files
 
-    def send_emails(self):
-        pass
+    def send_emails(self, receivers, attachments=[]):
+        sender_email = self.email
+        password = self.password
+
+        message = MIMEMultipart("alternative")
+        message["Subject"] = "Camera Summary"
+        message["From"] = sender_email
+        message["To"] = receivers
+
+        # Create the plain-text and HTML version of your message
+        text = """\
+        Godmorgon,
+        
+        Här kommer senaste mailet från kameran"""
+        html = """\
+        <html>
+        <body>
+            <p>Godmorgon,<br>
+            Här kommer senaste mailet från kameran<br>
+            </p>
+        </body>
+        </html>
+        """
+
+        # Turn these into plain/html MIMEText objects
+        part1 = MIMEText(text, "plain")
+        part2 = MIMEText(html, "html")
+        
+
+        # Add HTML/plain-text parts to MIMEMultipart message
+        # The email client will try to render the last part first
+        message.attach(part1)
+        message.attach(part2)
+        for attachment in attachments:
+            message.attach(self._add_attachments(attachment))
+
+        # Create secure connection with server and send email
+        context = ssl.create_default_context()
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls(context=context)
+            server.login(sender_email, password)
+            server.sendmail(
+                sender_email, receivers, message.as_string()
+            )
+
+    def _add_attachments(self, file_path):
+        # Open PDF file in binary mode
+        with open(file_path, "rb") as attachment:
+            # Add file as application/octet-stream
+            # Email client can usually download this automatically as attachment
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(attachment.read())
+
+        # Encode file in ASCII characters to send by email    
+        encoders.encode_base64(part)
+        filename = file_path.split('/')[-1]
+
+        # Add header as key/value pair to attachment part
+        part.add_header(
+            'Content-Disposition',
+            f'attachment; filename= {filename}',
+        )
+
+        return part
+
