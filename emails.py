@@ -91,8 +91,6 @@ class EmailHandler():
         new_files = []
         pictures = 0
 
-        # now for every id we'll fetch the email
-        # to extract its content
         for i in mail_ids:
             # the fetch function fetch the email given its id
             # and format that you want the message to be
@@ -132,12 +130,13 @@ class EmailHandler():
                         mail_content = message.get_payload()
 
                     print(f'Content: {mail_content}')
+                    
                     if new_file:
                         print(f'New file at: {file_path}')
                         new_files.append(file_path)
                         numbers = [int(s) for s in mail_content.split() if s.isdigit()]
-                        pictures += numbers[0]
-        print(pictures)
+                        pictures += numbers[0]  
+                        
         return new_files, pictures
 
     def send_emails(self, receivers, number_of_pictures=0, attachments=[]):
