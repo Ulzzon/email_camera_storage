@@ -17,7 +17,8 @@ class EmailHandler():
         self.email = email_address
         self.password = password
         self.mail = None
-        
+        self.activity_log = []
+
     def save_attachment(self, msg, download_folder="/tmp"):
             """
             Given a message, save its attachments to the specified
@@ -33,11 +34,8 @@ class EmailHandler():
                     continue
 
                 filename = part.get_filename().split('.')[0]
-                
                 dirname = os.path.dirname(__file__)
-                mail_date = msg['date']
-                date_time_obj = datetime.datetime.strptime(mail_date, '%a, %d %b %Y %H:%M:%S %z')
-                file_date = date_time_obj.strftime('%Y_%m_%d')
+                file_date = self._convert_to_file_date(msg['date'])
 
                 att_path = os.path.join(dirname, f'temp/{filename}_{file_date}.JPG')
                 print(f'Attachment downloaded: {att_path}')
@@ -91,10 +89,12 @@ class EmailHandler():
         new_files = []
         pictures = 0
 
-        for i in mail_ids:
+        for mail_id in mail_ids:
             # the fetch function fetch the email given its id
             # and format that you want the message to be
-            status, data = self.mail.fetch(i, '(RFC822)')
+            if self._check_if_new_mail(f'{mail_id}'):
+                continue
+            status, data = self.mail.fetch(mail_id, '(RFC822)')
             mail_content = ''
             # the content data at the '(RFC822)' format comes on
             # a list with a tuple with header, content, and the closing
@@ -130,24 +130,27 @@ class EmailHandler():
                         mail_content = message.get_payload()
 
                     print(f'Content: {mail_content}')
-                    
+
                     if new_file:
                         print(f'New file at: {file_path}')
                         new_files.append(file_path)
                         numbers = [int(s) for s in mail_content.split() if s.isdigit()]
-                        pictures += numbers[0]  
-                        
+                        pictures += numbers[0]
+                        self.store_email_log(mail_id, self._convert_to_file_date(mail_date), numbers[0], file_path)
+
         return new_files, pictures
 
     def send_emails(self, receivers, number_of_pictures=0, attachments=[]):
         sender_email = self.email
         password = self.password
+        html_activity = ''
 
         message = MIMEMultipart("alternative")
-        message["Subject"] = "Camera Summary"
-        message["From"] = sender_email
+        message["Subject"] = "Summering från åtelkameran"
+        message["From"] = f'Tobias <{sender_email}>'
         message["To"] = receivers
-
+        for activity in self.activity_log:
+            html_activity += f'<li>{activity}</li>'
         # Create the plain-text and HTML version of your message
         text = f"""\
         Godmorgon,
@@ -162,6 +165,11 @@ class EmailHandler():
             <p>Godmorgon,<br>
             Här kommer senaste mailet från kameran<br>
             Antal bilder: {number_of_pictures}<br>
+
+            Aktivitets log:
+            <ol>
+            {html_activity}
+            </ol>
             </p>
         </body>
         </html>
@@ -176,7 +184,7 @@ class EmailHandler():
         # The email client will try to render the last part first
         message.attach(part1)
         message.attach(part2)
-        for attachment in attachments:
+        for attachment in attachments[:10]:
             message.attach(self._add_attachments(attachment))
 
         # Create secure connection with server and send email
@@ -208,3 +216,24 @@ class EmailHandler():
 
         return part
 
+    def store_email_log(self, mail_id, timestamp, number_of_pictures, attachment='None'):
+        dirname = os.path.dirname(__file__)
+        logfile = os.path.join(dirname, 'output', 'logfile.txt')
+        self.activity_log.append(f'{timestamp} images: {number_of_pictures}')
+        with open(logfile,'a+') as log:
+            log.write(f'{mail_id},{timestamp},{number_of_pictures},{attachment} \n')
+
+    def _check_if_new_mail(self, mail_id):
+        exists = False
+        dirname = os.path.dirname(__file__)
+        logfile = os.path.join(dirname, 'output', 'logfile.txt')
+        if os.path.isfile(logfile):
+            with open(logfile,'rt') as log:
+                exists = [True for line in log.readlines() if line.startswith(mail_id)]
+        return exists
+
+
+    def _convert_to_file_date(self, mail_date):
+        date_time_obj = datetime.datetime.strptime(mail_date, '%a, %d %b %Y %H:%M:%S %z')
+        date_time_obj = date_time_obj.astimezone()
+        return date_time_obj.strftime('%Y_%m_%d_T%H-%M')
