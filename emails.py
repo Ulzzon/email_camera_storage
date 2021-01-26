@@ -134,8 +134,12 @@ class EmailHandler():
                     if new_file:
                         print(f'New file at: {file_path}')
                         new_files.append(file_path)
-                        numbers = [int(s) for s in mail_content.split() if s.isdigit()]
-                        pictures += numbers[0]
+                        try:
+                            numbers = [int(s) for s in mail_content.split() if s.isdigit()]
+                            pictures += numbers[0]
+                        except Exception as e:
+                            pictures += 1
+                            numbers.append(1)
                         self.store_email_log(mail_id, self._convert_to_file_date(mail_date), numbers[0], file_path)
 
         return new_files, pictures
@@ -148,7 +152,7 @@ class EmailHandler():
         message = MIMEMultipart("alternative")
         message["Subject"] = "Summering från åtelkameran"
         message["From"] = f'Tobias <{sender_email}>'
-        message["To"] = receivers
+        message["To"] = f'{receivers}'
         for activity in self.activity_log:
             html_activity += f'<li>{activity}</li>'
         # Create the plain-text and HTML version of your message
@@ -193,7 +197,7 @@ class EmailHandler():
             server.starttls(context=context)
             server.login(sender_email, password)
             server.sendmail(
-                sender_email, receivers, message.as_string()
+                sender_email, receivers.split(','), message.as_string()
             )
 
     def _add_attachments(self, file_path):
