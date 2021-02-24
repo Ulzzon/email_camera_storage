@@ -167,10 +167,10 @@ class EmailHandler():
         <html>
         <body>
             <p>Godmorgon,<br>
-            Här kommer senaste mailet från kameran<br>
+            Här kommer summering av senaste dygnets rapporter från kameran<br>
             Antal bilder: {number_of_pictures}<br>
 
-            Aktivitets log:
+            Aktiviter:
             <ol>
             {html_activity}
             </ol>
@@ -188,7 +188,7 @@ class EmailHandler():
         # The email client will try to render the last part first
         message.attach(part1)
         message.attach(part2)
-        for attachment in attachments[:10]:
+        for attachment in attachments[:15]:
             message.attach(self._add_attachments(attachment))
 
         # Create secure connection with server and send email
