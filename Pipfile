@@ -1,0 +1,16 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+email-summary-app = {editable = true, file = "file:///Users/tobias/Documents/code/email_camera_storage"}
+"aws-cdk.aws-lambda" = "*"
+"aws-cdk.aws-apigateway" = "*"
+"aws-cdk.aws-events" = "*"
+"aws-cdk.aws-events-targets" = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.8"
