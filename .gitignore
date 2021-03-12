@@ -132,3 +132,7 @@ dmypy.json
 # Output folders
 /temp
 config.ini
+
+# CDK asset staging directory
+.cdk.staging
+cdk.out

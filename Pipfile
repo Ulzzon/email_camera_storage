@@ -9,6 +9,9 @@ email-summary-app = {editable = true, file = "file:///Users/tobias/Documents/cod
 "aws-cdk.aws-apigateway" = "*"
 "aws-cdk.aws-events" = "*"
 "aws-cdk.aws-events-targets" = "*"
+"aws-cdk.aws-dynamodb" = "*"
+boto3 = "*"
+"aws-cdk.aws-s3" = "*"
 
 [dev-packages]
 

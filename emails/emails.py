@@ -9,7 +9,6 @@ from email.mime.base import MIMEBase
 from email import encoders
 
 SERVER = 'imap.gmail.com'
-DAYS = 7
 
 class EmailHandler():
 
@@ -37,7 +36,7 @@ class EmailHandler():
                 dirname = os.path.dirname(__file__)
                 file_date = self._convert_to_file_date(msg['date'])
 
-                att_path = os.path.join(dirname, f'temp/{filename}_{file_date}.JPG')
+                att_path = os.path.join(dirname, f'{filename}_{file_date}.JPG')
                 print(f'Attachment downloaded: {att_path}')
 
                 if not os.path.isfile(att_path):
@@ -47,10 +46,7 @@ class EmailHandler():
                     new_file = True
             return new_file, att_path
 
-    def get_all_emails(self):
-        today = datetime.date.today()
-        week_ago = today - datetime.timedelta(days=DAYS)
-
+    def get_all_emails(self, search_days=10):
         # connect to the server and go to its inbox
         self.mail = imaplib.IMAP4_SSL(SERVER)
         try:
@@ -62,7 +58,7 @@ class EmailHandler():
         # we choose the inbox but you can select others
         self.mail.select('inbox')
         today = datetime.date.today()
-        week_ago = today - datetime.timedelta(days=7)
+        week_ago = today - datetime.timedelta(days=search_days)
         string_week = week_ago.strftime('"%d-%b-%Y"')
         print('week' + string_week)
         # we'll search using the ALL criteria to retrieve
@@ -88,7 +84,7 @@ class EmailHandler():
         new_file = False
         new_files = []
         pictures = 0
-
+        print('Mail Ids array: \n {}'.format(mail_ids))
         for mail_id in mail_ids:
             # the fetch function fetch the email given its id
             # and format that you want the message to be
@@ -222,7 +218,7 @@ class EmailHandler():
 
     def store_email_log(self, mail_id, timestamp, number_of_pictures, attachment='None'):
         dirname = os.path.dirname(__file__)
-        logfile = os.path.join(dirname, 'output', 'logfile.txt')
+        logfile = os.path.join(dirname, 'logfile.txt')
         self.activity_log.append(f'{timestamp} images: {number_of_pictures}')
         with open(logfile,'a+') as log:
             log.write(f'{mail_id},{timestamp},{number_of_pictures},{attachment} \n')

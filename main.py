@@ -1,6 +1,6 @@
 import sys
 import os
-from emails import EmailHandler
+from emails.emails import EmailHandler
 import configparser
 
 
