@@ -14,6 +14,10 @@ class EmailConstruct(core.Construct):
         return self._table
 
     @property
+    def image_bucket(self):
+        return self._image_bucket
+
+    @property
     def handler(self):
         return self._handler
 
@@ -25,7 +29,7 @@ class EmailConstruct(core.Construct):
             partition_key={'name': 'mail_id', 'type': ddb.AttributeType.STRING},
         )
 
-        image_bucket = aws_s3.Bucket(self,
+        self._image_bucket = aws_s3.Bucket(self,
             'ImageBucket',
             block_public_access=BlockPublicAccess.BLOCK_ALL,
             removal_policy=RemovalPolicy.DESTROY,
@@ -34,15 +38,15 @@ class EmailConstruct(core.Construct):
         self._handler = _lambda.Function(self,
             'MainHandler',
             runtime=_lambda.Runtime.PYTHON_3_8,
-            code=_lambda.Code.asset('lambda'),
+            code=_lambda.Code.asset('lambdas'),
             handler= 'main_lambda.handler',
             memory_size= 128,
             timeout=Duration.seconds(60),
             environment={
                 'LOG_TABLE_NAME': self._table.table_name,
-                'S3_BUCKET_NAME': image_bucket.bucket_name,
+                'S3_BUCKET_NAME': self._image_bucket.bucket_name,
             },
             )
 
-        image_bucket.grant_read_write(self._handler)
+        self.image_bucket.grant_read_write(self._handler)
         self._table.grant_read_write_data(self.handler)

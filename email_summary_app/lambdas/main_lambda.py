@@ -10,6 +10,8 @@ from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
+from dateutil import tz
+
 
 
 database = boto3.resource('dynamodb')
@@ -39,7 +41,8 @@ def handler(event, context):
         },
     }
 
-
+class NoImageException(Exception):
+    pass
 
 
 class EmailHandler():
@@ -52,14 +55,14 @@ class EmailHandler():
         self.table = database.Table(os.environ['LOG_TABLE_NAME'])
         self.s3_storage = s3.Bucket(os.environ['S3_BUCKET_NAME'])
 
-    def save_attachment(self, msg, download_folder="/tmp"):
+    def save_attachment(self, msg, download_folder="/images"):
             """
             Given a message, save its attachments to the specified
             download folder (default is /tmp)
             return: file path to attachment
             """
-            att_path = "No attachment found."
-            new_file = False
+            att_key = "No attachment found."
+            image_data = None
             for part in msg.walk():
                 if part.get_content_maintype() == 'multipart':
                     continue
@@ -69,13 +72,14 @@ class EmailHandler():
                 filename = part.get_filename().split('.')[0]
                 file_date = self._convert_to_file_date(msg['date'])
 
-                att_path = os.path.join(download_folder, f'{filename}_{file_date}.JPG')
-                print(f'Attachment downloaded: {att_path}')
+                att_key = os.path.join(download_folder, f'{filename}_{file_date}.JPG')
+                print(f'Attachment downloaded: {att_key}')
                 
                 image_data = part.get_payload(decode=True)
-                new_file = True
-                self.s3_storage.put_object(Key=att_path, Body=image_data)
-            return new_file, image_data
+                self.s3_storage.put_object(Key=att_key, Body=image_data)
+            if image_data is None:
+                raise NoImageException()
+            return att_key, image_data
 
     def get_all_emails(self, search_days=7):
         # connect to the server and go to its inbox
@@ -112,8 +116,6 @@ class EmailHandler():
 
     def fetch_emails(self):
         mail_ids = self.get_all_emails()
-        email_date_received = None
-        email_attachment = None
         new_emails_received = []
 
         for mail_id in mail_ids:
@@ -123,15 +125,18 @@ class EmailHandler():
             if self._check_if_new_mail(f'{mail_id}'):
                 print(f'New email received with id:{mail_id}')
                 status, data = self.mail.fetch(mail_id, '(RFC822)')
-                timestamp, attachment = self.parse_email(data)
-                new_emails_received.append((mail_id, timestamp, attachment))
+                try:
+                    timestamp, attachment_key, attachment_data = self.parse_email(data)
+                except NoImageException:
+                    print(f'Email without image attachment: {mail_id}')
+                    continue
+                new_emails_received.append((mail_id, timestamp, attachment_key, attachment_data))
         if new_emails_received:
             self.store_email_log(new_emails_received)
         return new_emails_received
     
     def parse_email(self, email_data):
-        mail_content = ''
-        email_attachment = None
+        attachment_data = None
         # the content data at the '(RFC822)' format comes on
         # a list with a tuple with header, content, and the closing
         # byte b')'
@@ -144,8 +149,11 @@ class EmailHandler():
                 message = email.message_from_bytes(response_part[1])
                 mail_subject = message['subject']
                 mail_date = message['date']
-                new_file, email_attachment = self.save_attachment(message)
-        return mail_date, email_attachment
+                isotime = datetime.datetime.strptime(mail_date, '%a, %d %b %Y %H:%M:%S %z')
+                to_zone = tz.gettz('Europe/Stockholm')
+                local_time = datetime.datetime.combine(isotime.date(), isotime.time(), tzinfo=to_zone).isoformat()
+                attachment_key, attachment_data = self.save_attachment(message)
+        return local_time, attachment_key, attachment_data
 
 
     def send_emails(self, receivers, attachments=[]):
@@ -193,9 +201,8 @@ class EmailHandler():
         # The email client will try to render the last part first
         message.attach(part1)
         message.attach(part2)
-        for attachment in attachments[:15]:
-            image_name = '{}.JPG'.format(attachment[1])
-            message.attach(self._add_image_as_attachment(attachment[2], image_name))
+        for (mail_id, timestamp, attachment_key, attachment_data) in attachments[:15]:
+            message.attach(self._add_image_as_attachment(attachment_data, attachment_key))
 
         # Create secure connection with server and send email
         context = ssl.create_default_context()
@@ -216,17 +223,17 @@ class EmailHandler():
 
     def store_email_log(self, list_to_log):
         with self.table.batch_writer() as batch:
-            for (mail_id, timestamp, attachment) in list_to_log:
+            for (mail_id, timestamp, attachment_key, attachment_data) in list_to_log:
                 batch.put_item(
                     Item={
                         'mail_id': mail_id,
                         'timestamp': timestamp,
                         'number_of_pictures': 0,
-                        'image_array': attachment
+                        'image_array': attachment_key,
                     }
                 )
 
-                self.activity_log.append(f'{timestamp}')
+                self.activity_log.append(f'{timestamp}: {attachment_key}')
 
 
     def _check_if_new_mail(self, mail_id):

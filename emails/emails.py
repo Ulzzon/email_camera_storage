@@ -92,6 +92,7 @@ class EmailHandler():
                 continue
             status, data = self.mail.fetch(mail_id, '(RFC822)')
             mail_content = ''
+            print(data)
             # the content data at the '(RFC822)' format comes on
             # a list with a tuple with header, content, and the closing
             # byte b')'
